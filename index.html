@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>ClipMaker</h1>
+    <button id="upload_widget" class="cloudinary-button">Upload files</button>
+    <pre id="output" style="white-space: pre-wrap; margin-top: 1rem;"></pre>
+
+<script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript"></script>  
+
+<script type="text/javascript">  
+
+        const app = {
+            transcriptionUrl: '',
+            public_id: '',
+            version: '',
+            maxPolls: 30,
+            pollIntervalMs: 2000,
+
+            buildTranscriptUrl() {
+                const version = this.version || Date.now();
+                return `https://res.cloudinary.com/${config.cloudName}/raw/upload/v${version}/${this.public_id}.transcript`;
+            },
+
+            waitForTranscription() {
+                // Preciso de um polling para saber se a transcrição tá pronta.
+                // Tenta até `maxPolls` vezes com `pollIntervalMs` de intervalo.
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+
+                    const tryFetch = async () => {
+                        attempts += 1;
+                        try {
+                            const transcript = await this.getTranscription();
+                            resolve(transcript);
+                        } catch (err) {
+                            if (attempts >= this.maxPolls) {
+                                return reject(new Error('Transcrição não ficou pronta a tempo.'));
+                            }
+                            setTimeout(tryFetch, this.pollIntervalMs);
+                        }
+                    };
+
+                    tryFetch();
+                });
+            },
+
+            async getTranscription() {
+                const url = this.buildTranscriptUrl();
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Transcrição não disponível (status: ${response.status})`);
+                }
+                return response.json();
+            },
+
+            getViralMoments(transcript) {
+                // Exemplo simples de extração de "momentos virais".
+                // Aqui você pode adaptar para o que fizer sentido no seu formato de transcrição.
+                if (!transcript || !Array.isArray(transcript.words)) return [];
+
+                return transcript.words
+                    .filter(({ text }) => typeof text === 'string' && /viral|moment|boom/i.test(text))
+                    .map(({ text, start }) => ({ text, start }));
+            },
+
+            renderOutput(text) {
+                const outputEl = document.getElementById('output');
+                if (!outputEl) return;
+                outputEl.textContent = text;
+            }
+        }
+
+        const config = {
+            cloudName:'dwq1lx65u',
+            uploadPreset:'upload_nlw'
+        }
+
+        const myWidget = cloudinary.createUploadWidget(
+            config,
+            (error, result) => {
+                if (!error && result && result.event === "success") {
+                    console.log('Done! Here is the upload info: ', result.info);
+                    app.public_id = result.info.public_id;
+                    app.version = result.info.version;
+
+                    app.renderOutput('Aguardando transcrição...');
+
+                    app.waitForTranscription()
+                        .then((transcript) => {
+                            app.transcriptionUrl = app.buildTranscriptUrl();
+                            const viral = app.getViralMoments(transcript);
+
+                            app.renderOutput(
+                                'Transcrição encontrada!\n\n' +
+                                JSON.stringify(transcript, null, 2) +
+                                '\n\nMomentos virais:\n' +
+                                JSON.stringify(viral, null, 2)
+                            );
+                        })
+                        .catch((err) => {
+                            console.error(err);
+                            app.renderOutput(`Erro: ${err.message}`);
+                        });
+                }
+            }
+        );
+
+        document.getElementById("upload_widget").addEventListener("click", function(){
+            myWidget.open();
+        }, false);
+</script>
+</body>
+</html>
