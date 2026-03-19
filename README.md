@@ -25,7 +25,7 @@ O **ClipMaker** é uma aplicação web desenvolvida durante o evento NLW (Next L
     No arquivo `index.html`, localize o objeto `config` e verifique suas credenciais:
     ```javascript
     const config = {
-        cloudName: 'dwq1lx65u',
+        cloudName: 'dwq1lx65',
         uploadPreset: 'upload_nlw'
     }
     ```
